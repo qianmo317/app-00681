@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+/* 确保 html 和 body 填充整个视口 */
+html,
+body {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+/* 设置 #app 也占满全高 */
+#app {
+  min-height: 100vh;
+}
