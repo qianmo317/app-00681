@@ -2,15 +2,15 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { Gamepad2, Trophy } from 'lucide-vue-next'
 import { useGame } from './composables/useGame'
-import { LEVELS } from './data/levels'
+import { addCustomLevel } from './data/levels'
 import GameHeader from './components/GameHeader.vue'
 import LevelSelector from './components/LevelSelector.vue'
 import GameBoard from './components/GameBoard.vue'
 import GameControls from './components/GameControls.vue'
 import MobileControls from './components/MobileControls.vue'
 import GameOverlay from './components/GameOverlay.vue'
+import LevelEditor from './components/LevelEditor.vue'
 
-// 使用游戏逻辑 Composable
 const {
   currentLevelIndex,
   gameMap,
@@ -18,7 +18,11 @@ const {
   history,
   isGameWon,
   isMoving,
+  levels,
+  hasNextLevel,
   initLevel,
+  initCustomLevel,
+  refreshLevels,
   undo,
   resetLevel,
   moveUp,
@@ -29,15 +33,29 @@ const {
   nextLevel
 } = useGame()
 
-// UI 状态
 const showSettings = ref(false)
+const showEditor = ref(false)
 
-// 切换设置面板
 const toggleSettings = () => {
   showSettings.value = !showSettings.value
 }
 
-// 选关包装
+const openEditor = () => {
+  showSettings.value = false
+  showEditor.value = true
+}
+
+const closeEditor = () => {
+  showEditor.value = false
+}
+
+const handleSaveAndPlay = (levelData) => {
+  addCustomLevel(levelData)
+  refreshLevels()
+  initCustomLevel(levelData)
+  showEditor.value = false
+}
+
 const handleSelectLevel = (index) => {
   selectLevel(index)
   showSettings.value = false
@@ -117,9 +135,11 @@ onUnmounted(() => {
         <!-- 移动端选关面板 -->
         <LevelSelector 
           :currentLevelIndex="currentLevelIndex"
+          :levels="levels"
           :isMobile="true"
           :show="showSettings"
           @selectLevel="handleSelectLevel"
+          @openEditor="openEditor"
         />
 
         <!-- 游戏地图容器 -->
@@ -128,7 +148,7 @@ onUnmounted(() => {
             <GameOverlay 
               :isGameWon="isGameWon" 
               :steps="steps" 
-              :hasNextLevel="currentLevelIndex < LEVELS.length - 1"
+              :hasNextLevel="hasNextLevel"
               @reset="resetLevel" 
               @nextLevel="nextLevel" 
             />
@@ -181,7 +201,9 @@ onUnmounted(() => {
            </h3>
            <LevelSelector 
              :currentLevelIndex="currentLevelIndex"
+             :levels="levels"
              @selectLevel="handleSelectLevel"
+             @openEditor="openEditor"
            />
         </div>
 
@@ -209,6 +231,13 @@ onUnmounted(() => {
       </div>
 
     </div>
+
+    <!-- 关卡编辑器 -->
+    <LevelEditor 
+      :show="showEditor"
+      @close="closeEditor"
+      @saveAndPlay="handleSaveAndPlay"
+    />
   </div>
 </template>
 

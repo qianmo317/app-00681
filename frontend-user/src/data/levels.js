@@ -1,4 +1,4 @@
-export const LEVELS = [
+export const PRESET_LEVELS = [
   {
     name: "第一关 - 入门",
     difficulty: "简单",
@@ -42,3 +42,40 @@ export const LEVELS = [
     ],
   },
 ];
+
+const STORAGE_KEY = 'sokoban_custom_levels';
+
+const loadCustomLevels = () => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveCustomLevels = (levels) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(levels));
+  } catch {
+  }
+};
+
+let customLevels = loadCustomLevels();
+
+export const getLevels = () => {
+  return [...PRESET_LEVELS, ...customLevels];
+};
+
+export const addCustomLevel = (level) => {
+  customLevels = [...customLevels, level];
+  saveCustomLevels(customLevels);
+  return PRESET_LEVELS.length + customLevels.length - 1;
+};
+
+export const clearCustomLevels = () => {
+  customLevels = [];
+  saveCustomLevels(customLevels);
+};
+
+export const LEVELS = getLevels();

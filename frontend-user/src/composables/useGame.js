@@ -1,17 +1,21 @@
 import { ref, computed } from 'vue'
-import { LEVELS } from '../data/levels'
+import { getLevels } from '../data/levels'
 
 export function useGame() {
-  const currentLevelIndex = ref(0) // 当前关卡索引
-  const gameMap = ref([]) // 当前游戏地图
-  const steps = ref(0) // 步数统计
-  const history = ref([]) // 历史状态记录（用于撤销）
-  const playerPos = ref({ x: 0, y: 0 }) // 玩家位置
-  const isGameWon = ref(false) // 游戏胜利状态
-  const isMoving = ref(false) // 是否正在移动（用于动画锁定）
+  const currentLevelIndex = ref(0)
+  const gameMap = ref([])
+  const steps = ref(0)
+  const history = ref([])
+  const playerPos = ref({ x: 0, y: 0 })
+  const isGameWon = ref(false)
+  const isMoving = ref(false)
+  const levels = ref(getLevels())
 
-  // 当前关卡信息
-  const currentLevel = computed(() => LEVELS[currentLevelIndex.value])
+  const currentLevel = computed(() => levels.value[currentLevelIndex.value])
+
+  const refreshLevels = () => {
+    levels.value = getLevels()
+  }
 
   // 检查是否胜利
   const checkWin = computed(() => {
@@ -31,17 +35,32 @@ export function useGame() {
     return map.map(row => [...row])
   }
 
-  // 初始化关卡
   const initLevel = (levelIndex = currentLevelIndex.value) => {
     currentLevelIndex.value = levelIndex
     isGameWon.value = false
     steps.value = 0
     history.value = []
     
-    // 深拷贝原始地图
-    gameMap.value = deepCopyMap(LEVELS[levelIndex].map)
+    gameMap.value = deepCopyMap(levels.value[levelIndex].map)
     
-    // 查找玩家初始位置
+    for (let y = 0; y < gameMap.value.length; y++) {
+      for (let x = 0; x < gameMap.value[y].length; x++) {
+        if (gameMap.value[y][x] === 4 || gameMap.value[y][x] === 6) {
+          playerPos.value = { x, y }
+          return
+        }
+      }
+    }
+  }
+
+  const initCustomLevel = (levelData) => {
+    refreshLevels()
+    currentLevelIndex.value = levels.value.length - 1
+    isGameWon.value = false
+    steps.value = 0
+    history.value = []
+    gameMap.value = deepCopyMap(levelData.map)
+    
     for (let y = 0; y < gameMap.value.length; y++) {
       for (let x = 0; x < gameMap.value[y].length; x++) {
         if (gameMap.value[y][x] === 4 || gameMap.value[y][x] === 6) {
@@ -181,12 +200,13 @@ export function useGame() {
     initLevel(index)
   }
 
-  // 下一关
   const nextLevel = () => {
-    if (currentLevelIndex.value < LEVELS.length - 1) {
+    if (currentLevelIndex.value < levels.value.length - 1) {
       initLevel(currentLevelIndex.value + 1)
     }
   }
+
+  const hasNextLevel = computed(() => currentLevelIndex.value < levels.value.length - 1)
 
   return {
     currentLevelIndex,
@@ -196,7 +216,11 @@ export function useGame() {
     isGameWon,
     isMoving,
     currentLevel,
+    levels,
+    hasNextLevel,
     initLevel,
+    initCustomLevel,
+    refreshLevels,
     undo,
     resetLevel,
     moveUp,
