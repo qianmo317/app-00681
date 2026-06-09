@@ -1,6 +1,8 @@
 import { ref, computed } from 'vue'
 import { LEVELS } from '../data/levels'
 
+const CUSTOM_LEVELS_KEY = 'sokoban_custom_levels'
+
 export function useGame() {
   const currentLevelIndex = ref(0) // 当前关卡索引
   const gameMap = ref([]) // 当前游戏地图
@@ -9,9 +11,36 @@ export function useGame() {
   const playerPos = ref({ x: 0, y: 0 }) // 玩家位置
   const isGameWon = ref(false) // 游戏胜利状态
   const isMoving = ref(false) // 是否正在移动（用于动画锁定）
+  const customLevels = ref([]) // 自定义关卡列表
+
+  // 加载自定义关卡
+  const loadCustomLevels = () => {
+    try {
+      const saved = localStorage.getItem(CUSTOM_LEVELS_KEY)
+      if (saved) {
+        customLevels.value = JSON.parse(saved)
+      }
+    } catch (e) {
+      customLevels.value = []
+    }
+  }
+
+  // 获取所有关卡（预设 + 自定义）
+  const getAllLevels = () => {
+    loadCustomLevels()
+    return [...LEVELS, ...customLevels.value]
+  }
 
   // 当前关卡信息
-  const currentLevel = computed(() => LEVELS[currentLevelIndex.value])
+  const currentLevel = computed(() => {
+    const allLevels = getAllLevels()
+    return allLevels[currentLevelIndex.value] || allLevels[0]
+  })
+
+  // 总关卡数
+  const totalLevels = computed(() => {
+    return getAllLevels().length
+  })
 
   // 检查是否胜利
   const checkWin = computed(() => {
@@ -38,8 +67,9 @@ export function useGame() {
     steps.value = 0
     history.value = []
     
+    const allLevels = getAllLevels()
     // 深拷贝原始地图
-    gameMap.value = deepCopyMap(LEVELS[levelIndex].map)
+    gameMap.value = deepCopyMap(allLevels[levelIndex].map)
     
     // 查找玩家初始位置
     for (let y = 0; y < gameMap.value.length; y++) {
@@ -50,6 +80,11 @@ export function useGame() {
         }
       }
     }
+  }
+
+  // 刷新关卡列表（保存自定义关卡后调用）
+  const refreshLevels = () => {
+    loadCustomLevels()
   }
 
   // 保存当前状态到历史记录
@@ -183,7 +218,8 @@ export function useGame() {
 
   // 下一关
   const nextLevel = () => {
-    if (currentLevelIndex.value < LEVELS.length - 1) {
+    const allLevels = getAllLevels()
+    if (currentLevelIndex.value < allLevels.length - 1) {
       initLevel(currentLevelIndex.value + 1)
     }
   }
@@ -196,6 +232,8 @@ export function useGame() {
     isGameWon,
     isMoving,
     currentLevel,
+    totalLevels,
+    customLevels,
     initLevel,
     undo,
     resetLevel,
@@ -204,6 +242,9 @@ export function useGame() {
     moveLeft,
     moveRight,
     selectLevel,
-    nextLevel
+    nextLevel,
+    getAllLevels,
+    refreshLevels,
+    loadCustomLevels
   }
 }
