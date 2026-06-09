@@ -1,16 +1,15 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Gamepad2, Trophy } from 'lucide-vue-next'
+import { Gamepad2, Trophy, PenTool } from 'lucide-vue-next'
 import { useGame } from './composables/useGame'
-import { LEVELS } from './data/levels'
 import GameHeader from './components/GameHeader.vue'
 import LevelSelector from './components/LevelSelector.vue'
 import GameBoard from './components/GameBoard.vue'
 import GameControls from './components/GameControls.vue'
 import MobileControls from './components/MobileControls.vue'
 import GameOverlay from './components/GameOverlay.vue'
+import LevelEditor from './components/LevelEditor.vue'
 
-// 使用游戏逻辑 Composable
 const {
   currentLevelIndex,
   gameMap,
@@ -18,7 +17,11 @@ const {
   history,
   isGameWon,
   isMoving,
+  currentLevel,
+  allLevels,
   initLevel,
+  initCustomLevel,
+  refreshCustomLevels,
   undo,
   resetLevel,
   moveUp,
@@ -29,23 +32,37 @@ const {
   nextLevel
 } = useGame()
 
-// UI 状态
 const showSettings = ref(false)
+const isEditorMode = ref(false)
 
-// 切换设置面板
 const toggleSettings = () => {
   showSettings.value = !showSettings.value
 }
 
-// 选关包装
 const handleSelectLevel = (index) => {
   selectLevel(index)
   showSettings.value = false
 }
 
-// 键盘处理
+const enterEditor = () => {
+  isEditorMode.value = true
+}
+
+const exitEditor = () => {
+  isEditorMode.value = false
+  refreshCustomLevels()
+  initLevel(currentLevelIndex.value)
+}
+
+const handlePlayLevel = (levelData) => {
+  isEditorMode.value = false
+  refreshCustomLevels()
+  initCustomLevel(levelData)
+}
+
 const handleKeydown = (e) => {
-  // 阻止方向键的默认滚动行为
+  if (isEditorMode.value) return
+
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'w', 'W', 'a', 'A', 's', 'S', 'd', 'D'].includes(e.key)) {
     e.preventDefault()
   }
@@ -79,14 +96,12 @@ const handleKeydown = (e) => {
       break
   }
 
-  // 撤销：Ctrl+Z 或 U
   if ((e.ctrlKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'u' || e.key === 'U') {
     e.preventDefault()
     undo()
   }
 }
 
-// 生命周期
 onMounted(() => {
   initLevel(0)
   window.addEventListener('keydown', handleKeydown)
@@ -98,44 +113,43 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <!-- 主容器：深蓝色背景，允许滚动 -->
-  <div class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 font-sans text-slate-200 overflow-y-auto">
+  <!-- 编辑器模式 -->
+  <LevelEditor v-if="isEditorMode" @back="exitEditor" @playLevel="handlePlayLevel" />
+
+  <!-- 游戏模式 -->
+  <div v-else class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 font-sans text-slate-200 overflow-y-auto">
     
-    <!-- 内容容器：移动端单列，PC端双列 -->
     <div class="p-4 mx-auto max-w-[1400px] min-h-screen grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 content-start lg:content-center items-start lg:items-center lg:p-8">
 
-      <!-- ==================== 左侧 / 移动端顶部：游戏主舞台 ==================== -->
+      <!-- 左侧 / 移动端顶部：游戏主舞台 -->
       <div class="lg:col-span-8 xl:col-span-9 flex flex-col items-center justify-center w-full">
         
-        <!-- 移动端顶部栏 -->
         <GameHeader 
           :steps="steps" 
           :showSettings="showSettings" 
           @toggleSettings="toggleSettings" 
         />
 
-        <!-- 移动端选关面板 -->
         <LevelSelector 
           :currentLevelIndex="currentLevelIndex"
+          :allLevels="allLevels"
           :isMobile="true"
           :show="showSettings"
           @selectLevel="handleSelectLevel"
         />
 
-        <!-- 游戏地图容器 -->
         <GameBoard :gameMap="gameMap">
           <template #overlay>
             <GameOverlay 
               :isGameWon="isGameWon" 
               :steps="steps" 
-              :hasNextLevel="currentLevelIndex < LEVELS.length - 1"
+              :hasNextLevel="currentLevelIndex < allLevels.length - 1"
               @reset="resetLevel" 
               @nextLevel="nextLevel" 
             />
           </template>
         </GameBoard>
 
-        <!-- 移动端底部控制区 -->
          <MobileControls 
             :history="history"
             :isMoving="isMoving"
@@ -149,10 +163,10 @@ onUnmounted(() => {
 
       </div>
 
-      <!-- ==================== 右侧：PC端控制面板 (Web Only) ==================== -->
+      <!-- 右侧：PC端控制面板 -->
       <div class="hidden lg:flex lg:col-span-4 xl:col-span-3 flex-col gap-6 h-full justify-center">
         
-        <!-- 1. 标题卡片 -->
+        <!-- 标题卡片 -->
         <div class="bg-slate-800/60 backdrop-blur-xl rounded-3xl p-6 border border-slate-700/50 shadow-xl">
            <div class="flex items-center gap-3 mb-2">
             <div class="p-3 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20">
@@ -165,7 +179,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- 2. 数据与控制 -->
+        <!-- 数据与控制 -->
         <GameControls 
           :steps="steps" 
           :history="history" 
@@ -174,18 +188,35 @@ onUnmounted(() => {
           @reset="resetLevel"
         />
 
-        <!-- 3. 关卡列表 -->
+        <!-- 关卡列表 -->
         <div class="bg-slate-800/60 backdrop-blur-xl rounded-3xl p-6 border border-slate-700/50 shadow-xl flex-1 max-h-[400px] flex flex-col">
            <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
               <Trophy class="w-4 h-4" /> 关卡选择
            </h3>
            <LevelSelector 
              :currentLevelIndex="currentLevelIndex"
+             :allLevels="allLevels"
              @selectLevel="handleSelectLevel"
            />
         </div>
 
-        <!-- 4. 操作说明 -->
+        <!-- 关卡编辑器入口 -->
+        <button
+          @click="enterEditor"
+          class="bg-gradient-to-br from-violet-600/80 to-purple-600/80 backdrop-blur-xl rounded-3xl p-5 border border-violet-400/30 shadow-xl text-white relative overflow-hidden group hover:from-violet-500/80 hover:to-purple-500/80 transition-all active:scale-[0.98]"
+        >
+          <div class="flex items-center gap-3">
+            <div class="p-2.5 rounded-xl bg-white/10">
+              <PenTool class="w-5 h-5" />
+            </div>
+            <div>
+              <h3 class="font-bold text-base">关卡编辑器</h3>
+              <p class="text-violet-200 text-xs opacity-80">设计你自己的关卡</p>
+            </div>
+          </div>
+        </button>
+
+        <!-- 操作说明 -->
          <div class="bg-gradient-to-br from-sky-600/80 to-blue-600/80 backdrop-blur-xl rounded-3xl p-5 border border-sky-400/30 shadow-xl text-white relative overflow-hidden group">
             <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                <Gamepad2 class="w-24 h-24 -rotate-12" />
@@ -208,12 +239,22 @@ onUnmounted(() => {
 
       </div>
 
+      <!-- 移动端编辑器入口 -->
+      <div class="lg:hidden w-full max-w-lg mt-4">
+        <button
+          @click="enterEditor"
+          class="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-medium shadow-lg shadow-violet-500/30 active:scale-95 transition-transform"
+        >
+          <PenTool class="w-5 h-5" />
+          关卡编辑器
+        </button>
+      </div>
+
     </div>
   </div>
 </template>
 
 <style>
-/* 自定义滚动条 */
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
