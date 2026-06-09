@@ -1,8 +1,14 @@
 import { ref, computed } from 'vue'
 import { LEVELS } from '../data/levels'
+import { useCustomLevels } from './useCustomLevels'
 
 export function useGame() {
-  const currentLevelIndex = ref(0) // 当前关卡索引
+  const { customLevels } = useCustomLevels()
+
+  // 所有关卡 = 内建关卡 + 自定义关卡
+  const allLevels = computed(() => [...LEVELS, ...customLevels.value])
+
+  const currentLevelIndex = ref(0) // 当前关卡索引（基于 allLevels）
   const gameMap = ref([]) // 当前游戏地图
   const steps = ref(0) // 步数统计
   const history = ref([]) // 历史状态记录（用于撤销）
@@ -11,7 +17,7 @@ export function useGame() {
   const isMoving = ref(false) // 是否正在移动（用于动画锁定）
 
   // 当前关卡信息
-  const currentLevel = computed(() => LEVELS[currentLevelIndex.value])
+  const currentLevel = computed(() => allLevels.value[currentLevelIndex.value])
 
   // 检查是否胜利
   const checkWin = computed(() => {
@@ -33,13 +39,18 @@ export function useGame() {
 
   // 初始化关卡
   const initLevel = (levelIndex = currentLevelIndex.value) => {
+    // 关卡索引越界保护（自定义关卡被删除时回退到第一关）
+    if (levelIndex < 0 || levelIndex >= allLevels.value.length) {
+      levelIndex = 0
+    }
+
     currentLevelIndex.value = levelIndex
     isGameWon.value = false
     steps.value = 0
     history.value = []
     
     // 深拷贝原始地图
-    gameMap.value = deepCopyMap(LEVELS[levelIndex].map)
+    gameMap.value = deepCopyMap(allLevels.value[levelIndex].map)
     
     // 查找玩家初始位置
     for (let y = 0; y < gameMap.value.length; y++) {
@@ -183,7 +194,7 @@ export function useGame() {
 
   // 下一关
   const nextLevel = () => {
-    if (currentLevelIndex.value < LEVELS.length - 1) {
+    if (currentLevelIndex.value < allLevels.value.length - 1) {
       initLevel(currentLevelIndex.value + 1)
     }
   }
@@ -196,6 +207,7 @@ export function useGame() {
     isGameWon,
     isMoving,
     currentLevel,
+    allLevels,
     initLevel,
     undo,
     resetLevel,
