@@ -1,14 +1,15 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Gamepad2, Trophy } from 'lucide-vue-next'
+import { Gamepad2, Trophy, Pencil } from 'lucide-vue-next'
 import { useGame } from './composables/useGame'
-import { LEVELS } from './data/levels'
+import { useLevelEditor } from './composables/useLevelEditor'
 import GameHeader from './components/GameHeader.vue'
 import LevelSelector from './components/LevelSelector.vue'
 import GameBoard from './components/GameBoard.vue'
 import GameControls from './components/GameControls.vue'
 import MobileControls from './components/MobileControls.vue'
 import GameOverlay from './components/GameOverlay.vue'
+import LevelEditor from './components/LevelEditor.vue'
 
 // 使用游戏逻辑 Composable
 const {
@@ -26,11 +27,18 @@ const {
   moveLeft,
   moveRight,
   selectLevel,
-  nextLevel
+  nextLevel,
+  getAllLevels,
+  refreshLevels,
+  totalLevels
 } = useGame()
+
+// 使用关卡编辑器 Composable
+const { customLevels, loadCustomLevels } = useLevelEditor()
 
 // UI 状态
 const showSettings = ref(false)
+const showEditor = ref(false)
 
 // 切换设置面板
 const toggleSettings = () => {
@@ -41,6 +49,28 @@ const toggleSettings = () => {
 const handleSelectLevel = (index) => {
   selectLevel(index)
   showSettings.value = false
+}
+
+// 打开编辑器
+const openEditor = () => {
+  showSettings.value = false
+  showEditor.value = true
+  loadCustomLevels()
+}
+
+// 关闭编辑器
+const closeEditor = () => {
+  showEditor.value = false
+  refreshLevels()
+  loadCustomLevels()
+}
+
+// 从编辑器开始游玩
+const handlePlayFromEditor = (index) => {
+  showEditor.value = false
+  refreshLevels()
+  loadCustomLevels()
+  selectLevel(index)
 }
 
 // 键盘处理
@@ -88,6 +118,8 @@ const handleKeydown = (e) => {
 
 // 生命周期
 onMounted(() => {
+  loadCustomLevels()
+  refreshLevels()
   initLevel(0)
   window.addEventListener('keydown', handleKeydown)
 })
@@ -119,7 +151,10 @@ onUnmounted(() => {
           :currentLevelIndex="currentLevelIndex"
           :isMobile="true"
           :show="showSettings"
+          :customLevels="customLevels"
+          :showEditorButton="true"
           @selectLevel="handleSelectLevel"
+          @openEditor="openEditor"
         />
 
         <!-- 游戏地图容器 -->
@@ -128,7 +163,7 @@ onUnmounted(() => {
             <GameOverlay 
               :isGameWon="isGameWon" 
               :steps="steps" 
-              :hasNextLevel="currentLevelIndex < LEVELS.length - 1"
+              :hasNextLevel="currentLevelIndex < totalLevels - 1"
               @reset="resetLevel" 
               @nextLevel="nextLevel" 
             />
@@ -176,11 +211,22 @@ onUnmounted(() => {
 
         <!-- 3. 关卡列表 -->
         <div class="bg-slate-800/60 backdrop-blur-xl rounded-3xl p-6 border border-slate-700/50 shadow-xl flex-1 max-h-[400px] flex flex-col">
-           <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <Trophy class="w-4 h-4" /> 关卡选择
-           </h3>
+           <div class="flex items-center justify-between mb-4">
+             <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <Trophy class="w-4 h-4" /> 关卡选择
+             </h3>
+             <button
+               @click="openEditor"
+               class="p-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 hover:text-purple-300 transition-colors"
+               title="关卡编辑器"
+             >
+               <Pencil class="w-4 h-4" />
+             </button>
+           </div>
            <LevelSelector 
              :currentLevelIndex="currentLevelIndex"
+             :customLevels="customLevels"
+             :showEditorButton="false"
              @selectLevel="handleSelectLevel"
            />
         </div>
@@ -209,6 +255,13 @@ onUnmounted(() => {
       </div>
 
     </div>
+
+    <!-- 关卡编辑器 -->
+    <LevelEditor 
+      v-if="showEditor" 
+      @close="closeEditor"
+      @playLevel="handlePlayFromEditor"
+    />
   </div>
 </template>
 
