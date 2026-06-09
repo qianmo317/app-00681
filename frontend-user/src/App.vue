@@ -1,14 +1,14 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Gamepad2, Trophy } from 'lucide-vue-next'
+import { Gamepad2, Trophy, Plus } from 'lucide-vue-next'
 import { useGame } from './composables/useGame'
-import { LEVELS } from './data/levels'
 import GameHeader from './components/GameHeader.vue'
 import LevelSelector from './components/LevelSelector.vue'
 import GameBoard from './components/GameBoard.vue'
 import GameControls from './components/GameControls.vue'
 import MobileControls from './components/MobileControls.vue'
 import GameOverlay from './components/GameOverlay.vue'
+import LevelEditor from './components/LevelEditor.vue'
 
 // 使用游戏逻辑 Composable
 const {
@@ -18,6 +18,7 @@ const {
   history,
   isGameWon,
   isMoving,
+  allLevels,
   initLevel,
   undo,
   resetLevel,
@@ -31,6 +32,7 @@ const {
 
 // UI 状态
 const showSettings = ref(false)
+const showEditor = ref(false)
 
 // 切换设置面板
 const toggleSettings = () => {
@@ -43,8 +45,37 @@ const handleSelectLevel = (index) => {
   showSettings.value = false
 }
 
+// 打开编辑器
+const handleOpenEditor = () => {
+  showEditor.value = true
+  showSettings.value = false
+}
+
+// 关闭编辑器
+const handleCloseEditor = () => {
+  showEditor.value = false
+}
+
+// 编辑器保存关卡后：自动切换到新关卡
+const handleEditorSaved = (newIndex) => {
+  selectLevel(newIndex)
+}
+
+// 删除自定义关卡：如果删除的是当前正在玩的关卡，回到第一关
+const handleDeleteCustomLevel = (deletedIndex) => {
+  if (currentLevelIndex.value === deletedIndex) {
+    selectLevel(0)
+  } else if (currentLevelIndex.value > deletedIndex) {
+    // 当前索引在被删除项之后，需要前移一位
+    currentLevelIndex.value = currentLevelIndex.value - 1
+  }
+}
+
 // 键盘处理
 const handleKeydown = (e) => {
+  // 编辑器打开时不处理游戏快捷键
+  if (showEditor.value) return
+
   // 阻止方向键的默认滚动行为
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'w', 'W', 'a', 'A', 's', 'S', 'd', 'D'].includes(e.key)) {
     e.preventDefault()
@@ -120,6 +151,8 @@ onUnmounted(() => {
           :isMobile="true"
           :show="showSettings"
           @selectLevel="handleSelectLevel"
+          @openEditor="handleOpenEditor"
+          @deleteCustomLevel="handleDeleteCustomLevel"
         />
 
         <!-- 游戏地图容器 -->
@@ -128,7 +161,7 @@ onUnmounted(() => {
             <GameOverlay 
               :isGameWon="isGameWon" 
               :steps="steps" 
-              :hasNextLevel="currentLevelIndex < LEVELS.length - 1"
+              :hasNextLevel="currentLevelIndex < allLevels.length - 1"
               @reset="resetLevel" 
               @nextLevel="nextLevel" 
             />
@@ -182,6 +215,8 @@ onUnmounted(() => {
            <LevelSelector 
              :currentLevelIndex="currentLevelIndex"
              @selectLevel="handleSelectLevel"
+             @openEditor="handleOpenEditor"
+             @deleteCustomLevel="handleDeleteCustomLevel"
            />
         </div>
 
@@ -209,6 +244,13 @@ onUnmounted(() => {
       </div>
 
     </div>
+
+    <!-- 关卡编辑器弹窗 -->
+    <LevelEditor
+      :show="showEditor"
+      @close="handleCloseEditor"
+      @saved="handleEditorSaved"
+    />
   </div>
 </template>
 
